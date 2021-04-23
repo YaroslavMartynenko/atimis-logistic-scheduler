@@ -1,0 +1,12 @@
+.idea
+*/target/
+/out/
+*.iml
+logs/
+*.class
+*.log
+*.gz
+/target/
+*.csv
+*.zip
+*.txt
