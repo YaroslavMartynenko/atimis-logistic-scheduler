@@ -34,21 +34,23 @@ public class JobController {
         return new ResponseEntity<>(isJobDeleted, HttpStatus.OK);
     }
 
-    @PutMapping("{jobId}")
+    @PutMapping("{jobId}")//todo: change endpoint path and update service logic, names
     public ResponseEntity<Boolean> updateJob(@PathVariable String jobId, @RequestBody TimerInfo timerInfo) {
-        boolean response = schedulerService.updateScheduledJob(jobId, timerInfo);
-        return new ResponseEntity<>(response, HttpStatus.OK);
+        boolean isJobUpdated = schedulerService.updateScheduledJob(jobId, timerInfo);
+        return new ResponseEntity<>(isJobUpdated, HttpStatus.OK);
     }
 
-    @GetMapping("jobDetail")
+    @GetMapping("jobDetail1")//todo: change endpoint path and update service logic, names
     public ResponseEntity<List<TimerInfo>> getAllScheduledJobsDetail() {
         List<TimerInfo> jobsDetails = schedulerService.getAllScheduledJobsDetail();
         return new ResponseEntity<>(jobsDetails, HttpStatus.OK);
     }
 
-    @GetMapping("jobDetail/{jobId}")
+    @GetMapping("jobDetail1/{jobId}")//todo: change endpoint path and update service logic, names
     public ResponseEntity<TimerInfo> getScheduledJobDetail(@PathVariable String jobId) {
         TimerInfo jobDetail = schedulerService.getScheduledJobDetail(jobId);
         return new ResponseEntity<>(jobDetail, HttpStatus.OK);
     }
+
+
 }

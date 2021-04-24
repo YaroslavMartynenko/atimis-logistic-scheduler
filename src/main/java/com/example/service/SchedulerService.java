@@ -1,7 +1,9 @@
 package com.example.service;
 
+import com.example.domain.JobDetailDto;
 import com.example.domain.TimerInfo;
 import com.example.job.MessageJob;
+import com.example.util.JobDetailUtils;
 import com.example.util.TimerUtils;
 import lombok.RequiredArgsConstructor;
 import org.quartz.*;
@@ -40,16 +42,8 @@ public class SchedulerService {
         }
     }
 
-//    public <T extends Job> void scheduleJob(Class<T> jobClass, TimerInfo info) {
-//        JobDetail jobDetail = TimerUtils.buildJobDetail(jobClass, info);
-//        Trigger trigger = TimerUtils.buildTrigger(jobClass, info);
-//
-//        try {
-//            scheduler.scheduleJob(jobDetail, trigger);
-//        } catch (SchedulerException e) {
-//            e.printStackTrace();
-//        }
-//    }
+
+
 
     public boolean scheduleJob() {
         TimerInfo timerInfo = new TimerInfo();

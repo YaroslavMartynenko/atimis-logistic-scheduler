@@ -18,6 +18,8 @@ public final class TimerUtils {
                 .newJob(jobClass)
                 .withIdentity(jobClass.getSimpleName())
                 .usingJobData(jobDataMap)
+                .requestRecovery(true)//for re-executing job in fail case
+                .storeDurably(true)//save job to DB even if no triggers point to it
                 .build();
     }
 
