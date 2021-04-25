@@ -20,16 +20,18 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-public class JobStoreService {
+public class JobDetailService {
 
     private final Scheduler scheduler;
 
-    public List<JobDetailDto> getJobDetailList(String jobGroupName) {
+    public List<JobDetailDto> getJobDetailList(String jobId, String jobGroupName) {
         Set<JobKey> jobKeys = null;
         try {
-            jobKeys = StringUtils.isEmpty(jobGroupName)
-                    ? scheduler.getJobKeys(GroupMatcher.anyGroup())
-                    : scheduler.getJobKeys(GroupMatcher.jobGroupEquals(jobGroupName));
+            jobKeys = !StringUtils.isEmpty(jobId)
+                    ? Collections.singleton(new JobKey(jobId, jobGroupName))
+                    : StringUtils.isEmpty(jobGroupName)
+                        ? scheduler.getJobKeys(GroupMatcher.anyGroup())
+                        : scheduler.getJobKeys(GroupMatcher.jobGroupEquals(jobGroupName));
         } catch (SchedulerException e) {
             //todo: add logging
         }
@@ -50,17 +52,25 @@ public class JobStoreService {
                 .collect(Collectors.toList());
     }
 
-    public boolean saveJobDetails(JobDetailDto jobDetailDto) {
+    public boolean saveJobDetail(JobDetailDto jobDetailDto) {
         try {
             JobDetailUtils.validateJobDetailDto(jobDetailDto);
             JobDetail jobDetail = JobDetailUtils.convertDtoToJobDetail(jobDetailDto);
             scheduler.addJob(jobDetail, false, true);
             return true;
         } catch (SchedulerException | ClassNotFoundException e) {
-            e.printStackTrace();
+            //todo: add logging
             return false;
         }
     }
 
-
+    public boolean deleteJobDetail(String jobId, String jobGroupName) {
+        try {
+            return scheduler.deleteJob(new JobKey(jobId, jobGroupName));
+        } catch (SchedulerException e) {
+            e.printStackTrace();
+            //todo: add logging
+            return false;
+        }
+    }
 }

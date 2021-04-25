@@ -67,16 +67,16 @@ public final class JobDetailUtils {
             throw new ValidationException("Required value \"jobClassName\" is not specified or empty");
         }
 
-        Class<?> classType;
+        Class<?> jobClass;
         try {
             //todo: "com.example.job." - it is hotfix. Needs find out some better solution
-            classType = Class.forName("com.example.job." + jobClassName);
+            jobClass = Class.forName("com.example.job." + jobClassName);
         } catch (ClassNotFoundException e) {
             throw new ValidationException(
                     "Specified value \"jobClassName\" is incorrect. Job class with such name does not exist");
         }
 
-        if (!Job.class.isAssignableFrom(classType)) {
+        if (!Job.class.isAssignableFrom(jobClass)) {
             throw new ValidationException(
                     "Specified value \"jobClassName\" is incorrect. Class with such name does not implement \"Job\" interface");
         }
