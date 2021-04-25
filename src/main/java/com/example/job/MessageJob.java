@@ -3,6 +3,7 @@ package com.example.job;
 import com.example.entity.Message;
 import com.example.service.MessageService;
 import lombok.RequiredArgsConstructor;
+import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
 import org.springframework.stereotype.Component;
@@ -11,6 +12,7 @@ import java.time.LocalDateTime;
 
 @Component
 @RequiredArgsConstructor
+@DisallowConcurrentExecution
 public class MessageJob implements Job {
 
     private final MessageService messageService;

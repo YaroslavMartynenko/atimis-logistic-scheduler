@@ -16,7 +16,7 @@ public class JobDetailController {
 
     private final JobDetailService jobDetailService;
 
-    @GetMapping("{jobId}/{jobGroupName}")
+    @GetMapping(value = {"", "{jobGroupName}", "{jobId}/{jobGroupName}"})
     public ResponseEntity<List<JobDetailDto>> getJobDetailList(@PathVariable(required = false) String jobId,
                                                                @PathVariable(required = false) String jobGroupName) {
         List<JobDetailDto> jobDetailList = jobDetailService.getJobDetailList(jobId, jobGroupName);

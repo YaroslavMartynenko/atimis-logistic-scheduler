@@ -1,6 +1,7 @@
 package com.example.controller;
 
 import com.example.domain.TimerInfo;
+import com.example.domain.TriggerDto;
 import com.example.service.SchedulerService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -15,6 +16,18 @@ import java.util.List;
 public class JobController {
 
     private final SchedulerService schedulerService;
+
+    //todo: implement this endpoint
+    @PostMapping("run/{jobId}/{jobGroupName}")
+    public ResponseEntity<Boolean> scheduleJob(@PathVariable String jobId,
+                                               @PathVariable String jobGroupName,
+                                               @RequestBody TriggerDto triggerDto) {
+
+//        schedulerService.scheduleJob(jobId, jobGroupName, triggerDto);
+        boolean isJobScheduled = false;
+        return new ResponseEntity<>(isJobScheduled, HttpStatus.OK);
+    }
+
 
     @PostMapping("run")
     public ResponseEntity<Boolean> scheduleJob() {

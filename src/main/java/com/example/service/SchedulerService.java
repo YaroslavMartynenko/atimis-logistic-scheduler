@@ -1,17 +1,16 @@
 package com.example.service;
 
-import com.example.domain.JobDetailDto;
+import com.example.domain.TriggerDto;
 import com.example.domain.TimerInfo;
 import com.example.job.MessageJob;
-import com.example.util.JobDetailUtils;
 import com.example.util.TimerUtils;
 import lombok.RequiredArgsConstructor;
 import org.quartz.*;
 import org.quartz.impl.matchers.GroupMatcher;
 import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -23,26 +22,15 @@ public class SchedulerService {
 
     private final Scheduler scheduler;
 
-    @PostConstruct
-    public void startScheduler() {
-        try {
-            scheduler.start();
-//            scheduler.getListenerManager().addTriggerListener(new MessageTriggerListener(this));
-        } catch (SchedulerException e) {
-            System.out.println(e.getMessage());
-        }
+    public boolean scheduleJob(String jobId, String jobGroupName, TriggerDto triggerDto) {
+
+        //todo: implement this method
+        //   add util methods for validation and creating trigger
+
+//        scheduler.scheduleJob(jobDetail, trigger);
+
+        return false;
     }
-
-    @PreDestroy
-    public void stopScheduler() {
-        try {
-            scheduler.shutdown();
-        } catch (SchedulerException e) {
-            System.out.println(e.getMessage());
-        }
-    }
-
-
 
 
     public boolean scheduleJob() {
