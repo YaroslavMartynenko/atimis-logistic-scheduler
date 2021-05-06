@@ -5,16 +5,21 @@ import com.example.exception.ValidationException;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import org.quartz.*;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
-import java.util.Objects;
+import static java.util.Objects.isNull;
 
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public final class JobDetailUtils {
 
+    //todo
+//    @Value("${job.class.path}")
+//    private String jobClassPath;
+
     public static JobDetailDto convertJobDetailToDto(JobDetail jobDetail) {
-        if (Objects.isNull(jobDetail)) {
+        if (isNull(jobDetail)) {
             return null;
         }
 
@@ -31,18 +36,19 @@ public final class JobDetailUtils {
 
     @SuppressWarnings("unchecked")
     public static JobDetail convertDtoToJobDetail(JobDetailDto jobDetailDto) throws ClassNotFoundException {
-        if (Objects.isNull(jobDetailDto)) {
+        if (isNull(jobDetailDto)) {
             return null;
         }
 
         JobKey jobKey = StringUtils.isEmpty(jobDetailDto.getJobGroupName())
-                ? new JobKey(jobDetailDto.getJobId()) : new JobKey(jobDetailDto.getJobId(), jobDetailDto.getJobGroupName());
+                ? new JobKey(jobDetailDto.getJobId())
+                : new JobKey(jobDetailDto.getJobId(), jobDetailDto.getJobGroupName());
 
         JobDataMap jobDataMap = CollectionUtils.isEmpty(jobDetailDto.getJobData())
                 ? new JobDataMap() : new JobDataMap(jobDetailDto.getJobData());
 
-        boolean requestRecovery = !Objects.isNull(jobDetailDto.getIsJobSelfRecovered()) && jobDetailDto.getIsJobSelfRecovered();
-        boolean storeDurably = !Objects.isNull(jobDetailDto.getIsJobDurable()) && jobDetailDto.getIsJobDurable();
+        boolean requestRecovery = !isNull(jobDetailDto.getIsJobSelfRecovered()) && jobDetailDto.getIsJobSelfRecovered();
+        boolean storeDurably = !isNull(jobDetailDto.getIsJobDurable()) && jobDetailDto.getIsJobDurable();
         String description = StringUtils.isEmpty(jobDetailDto.getDescription()) ? null : jobDetailDto.getDescription();
 
         return JobBuilder
@@ -58,6 +64,9 @@ public final class JobDetailUtils {
     }
 
     public static void validateJobDetailDto(JobDetailDto jobDetailDto) {
+        if (isNull(jobDetailDto)) {
+            throw new ValidationException("Required job detail dto object is null");
+        }
         validateJobClassName(jobDetailDto.getJobClassName());
         validateJobId(jobDetailDto.getJobId());
     }

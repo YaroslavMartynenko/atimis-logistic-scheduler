@@ -10,7 +10,7 @@ import org.quartz.TriggerListener;
 @RequiredArgsConstructor
 public class MessageTriggerListener implements TriggerListener {
 
-    private final SchedulerService schedulerService;
+    private final JobService jobService;
 
     @Override
     public String getName() {

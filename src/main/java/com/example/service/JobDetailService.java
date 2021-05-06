@@ -18,6 +18,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static java.util.Collections.emptyList;
+
 @Service
 @RequiredArgsConstructor
 public class JobDetailService {
@@ -27,6 +29,7 @@ public class JobDetailService {
     public List<JobDetailDto> getJobDetailList(String jobId, String jobGroupName) {
         Set<JobKey> jobKeys = null;
         try {
+            //todo: replace on apache common lang
             jobKeys = !StringUtils.isEmpty(jobId)
                     ? Collections.singleton(new JobKey(jobId, jobGroupName))
                     : StringUtils.isEmpty(jobGroupName)
@@ -37,7 +40,7 @@ public class JobDetailService {
         }
 
         return CollectionUtils.isEmpty(jobKeys)
-                ? Collections.emptyList()
+                ? emptyList()
                 : jobKeys.stream()
                 .map(jobKey -> {
                     try {

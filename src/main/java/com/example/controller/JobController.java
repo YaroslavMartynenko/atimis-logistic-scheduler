@@ -1,9 +1,9 @@
 package com.example.controller;
 
-import com.example.domain.TimerInfo;
 import com.example.domain.TriggerDto;
-import com.example.service.SchedulerService;
+import com.example.service.JobService;
 import lombok.RequiredArgsConstructor;
+import org.quartz.JobExecutionContext;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,55 +15,40 @@ import java.util.List;
 @RequestMapping("job")
 public class JobController {
 
-    private final SchedulerService schedulerService;
+    private final JobService jobService;
 
-    //todo: implement this endpoint
+    // This endpoint does not work correctly
+    @GetMapping("info")
+    public ResponseEntity<List<JobExecutionContext>> getScheduledJobs(JobExecutionContext context) {
+        List<JobExecutionContext> scheduledJobs = jobService.getScheduledJobs();
+        return new ResponseEntity<>(scheduledJobs, HttpStatus.OK);
+    }
+
     @PostMapping("run/{jobId}/{jobGroupName}")
     public ResponseEntity<Boolean> scheduleJob(@PathVariable String jobId,
                                                @PathVariable String jobGroupName,
                                                @RequestBody TriggerDto triggerDto) {
-
-//        schedulerService.scheduleJob(jobId, jobGroupName, triggerDto);
-        boolean isJobScheduled = false;
+        boolean isJobScheduled = jobService.scheduleJob(jobId, jobGroupName, triggerDto);
         return new ResponseEntity<>(isJobScheduled, HttpStatus.OK);
     }
 
-
-    @PostMapping("run")
-    public ResponseEntity<Boolean> scheduleJob() {
-        boolean isJobScheduled = schedulerService.scheduleJob();
-        return new ResponseEntity<>(isJobScheduled, HttpStatus.OK);
-    }
-
-    @PostMapping("stop/{triggerId}")
-    public ResponseEntity<Boolean> stopScheduledJob(@PathVariable String triggerId) {
-        boolean isJobStopped = schedulerService.stopScheduledJob(triggerId);
+    @PostMapping("stop/{triggerId}/{triggerGroupName}")
+    public ResponseEntity<Boolean> stopScheduledJob(@PathVariable String triggerId,
+                                                    @PathVariable String triggerGroupName) {
+        boolean isJobStopped = jobService.stopScheduledJob(triggerId, triggerGroupName);
         return new ResponseEntity<>(isJobStopped, HttpStatus.OK);
     }
 
-    @DeleteMapping("{jobId}")
-    public ResponseEntity<Boolean> deleteJob(@PathVariable String jobId) {
-        boolean isJobDeleted = schedulerService.deleteJob(jobId);
-        return new ResponseEntity<>(isJobDeleted, HttpStatus.OK);
+    @PostMapping("runHardcodedJob")
+    public ResponseEntity<Boolean> scheduleJob() {
+        boolean isJobScheduled = jobService.scheduleHardcodedJob();
+        return new ResponseEntity<>(isJobScheduled, HttpStatus.OK);
     }
 
-    @PutMapping("{jobId}")//todo: change endpoint path and update service logic, names
-    public ResponseEntity<Boolean> updateJob(@PathVariable String jobId, @RequestBody TimerInfo timerInfo) {
-        boolean isJobUpdated = schedulerService.updateScheduledJob(jobId, timerInfo);
-        return new ResponseEntity<>(isJobUpdated, HttpStatus.OK);
-    }
-
-    @GetMapping("jobDetail1")//todo: change endpoint path and update service logic, names
-    public ResponseEntity<List<TimerInfo>> getAllScheduledJobsDetail() {
-        List<TimerInfo> jobsDetails = schedulerService.getAllScheduledJobsDetail();
-        return new ResponseEntity<>(jobsDetails, HttpStatus.OK);
-    }
-
-    @GetMapping("jobDetail1/{jobId}")//todo: change endpoint path and update service logic, names
-    public ResponseEntity<TimerInfo> getScheduledJobDetail(@PathVariable String jobId) {
-        TimerInfo jobDetail = schedulerService.getScheduledJobDetail(jobId);
-        return new ResponseEntity<>(jobDetail, HttpStatus.OK);
-    }
-
-
+    //todo: check if possible reschedule job and implement this endpoint
+//    @PutMapping("{jobId}")//todo: change endpoint path and update service logic
+//    public ResponseEntity<Boolean> updateJob(@PathVariable String jobId, @RequestBody TimerInfo timerInfo) {
+//        boolean isJobUpdated = jobService.updateScheduledJob(jobId, timerInfo);
+//        return new ResponseEntity<>(isJobUpdated, HttpStatus.OK);
+//    }
 }
