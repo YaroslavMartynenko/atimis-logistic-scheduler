@@ -11,6 +11,7 @@ import org.springframework.util.StringUtils;
 
 import java.sql.Timestamp;
 import java.text.ParseException;
+import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -32,6 +33,14 @@ public final class TriggerUtils {
                     .put(TriggerType.CRON, TriggerUtils::validateDtoValuesForCronTrigger)
                     .build();
 
+    public static Trigger convertDtoToTrigger(TriggerDto triggerDto) {
+        Function<TriggerDto, Trigger> triggerConvertor = TRIGGER_CONVERTORS.get(triggerDto.getTriggerType());
+        if (isNull(triggerConvertor)) {
+            throw new IllegalArgumentException("Can not create trigger from trigger dto: " + triggerDto.toString());
+        }
+        return triggerConvertor.apply(triggerDto);
+    }
+
     public static void validateTriggerDto(TriggerDto triggerDto) {
         if (isNull(triggerDto)) {
             throw new ValidationException("Required trigger dto object is null");
@@ -47,7 +56,7 @@ public final class TriggerUtils {
         }
     }
 
-    //todo: trigger type validation does not work correctly due to problem with TriggerType deserializer
+    //todo: trigger type validation does not work correctly due to problem with TriggerTypeDeserializer.class
     private static void validateTriggerType(TriggerType triggerType) {
         if (isNull(triggerType)) {
             throw new ValidationException("Required value \"triggerType\" is specified incorrectly or empty");
@@ -64,35 +73,83 @@ public final class TriggerUtils {
 
     private static void validateDtoValuesForSimpleTrigger(TriggerDto triggerDto) {
         validateRepeatForeverValue(triggerDto.getRepeatForever());
+        validateRepeatInterval(triggerDto.getRepeatIntervalMs());
+        validateStartDate(triggerDto.getStartDate());
+        if (triggerDto.getRepeatForever()) {
+            validateEndDate(triggerDto.getEndDate());
+            validateStartAndEndDateOrder(triggerDto.getStartDate(), triggerDto.getEndDate());
+        } else {
+            validateRepeatCount(triggerDto.getRepeatCount());
+        }
     }
 
-    private static void validateDtoValuesForCronTrigger(TriggerDto triggerDto) {
-        try {
-            CronExpression.validateExpression(triggerDto.getCronExpression());
-        } catch (ParseException e) {
-            throw new ValidationException("Required value \"cronExpression\" is specified incorrectly or empty");
+    private static void validateRepeatCount(Integer repeatCount) {
+        if (isNull(repeatCount) || repeatCount == 0) {
+            throw new ValidationException("Required value \" repeatCount\" is not specified or zero");
         }
-        //todo: validate start and end date, dates should be in future, end date should be after start date
-        //todo: move validation for each value to separate method
+    }
+
+    private static void validateRepeatInterval(Long repeatIntervalMs) {
+        if (isNull(repeatIntervalMs) || repeatIntervalMs == 0) {
+            throw new ValidationException("Required value \"repeatIntervalMs\" is not specified or zero");
+        }
     }
 
     private static void validateRepeatForeverValue(Boolean repeatForever) {
         if (isNull(repeatForever)) {
             throw new ValidationException("Required value \"repeatForever\" is not specified or empty");
         }
-        //todo:
-        //if repeatForever=true then validate repeatInterval
-        //if repeatForever=true then validate start and end date
-        //if repeatForever=false then validate repeatCount
-        //todo: move validation for each value to separate method
     }
 
-    public static Trigger convertDtoToTrigger(TriggerDto triggerDto) {
-        Function<TriggerDto, Trigger> triggerConvertor = TRIGGER_CONVERTORS.get(triggerDto.getTriggerType());
-        if (isNull(triggerConvertor)) {
-            throw new IllegalArgumentException("Can not create trigger from trigger dto: " + triggerDto.toString());
+    private static void validateDtoValuesForCronTrigger(TriggerDto triggerDto) {
+        validateCronExpression(triggerDto.getCronExpression());
+        validateStartDate(triggerDto.getStartDate());
+        validateEndDate(triggerDto.getEndDate());
+        validateStartAndEndDateOrder(triggerDto.getStartDate(), triggerDto.getEndDate());
+    }
+
+    private static void validateCronExpression(String cronExpression) {
+        try {
+            CronExpression.validateExpression(cronExpression);
+        } catch (ParseException e) {
+            throw new ValidationException("Required value \"cronExpression\" is specified incorrectly or empty");
         }
-        return triggerConvertor.apply(triggerDto);
+    }
+
+    private static void validateStartDate(String startDateString) {
+        LocalDateTime startDate;
+        try {
+            startDate = LocalDateTime.parse(startDateString);
+        } catch (Exception e) {
+            throw new ValidationException("Required value \"startDate\" is specified incorrectly or empty");
+        }
+        boolean isFutureDate = startDate.isAfter(LocalDateTime.now());
+        if (!isFutureDate) {
+            throw new ValidationException("Required value \"startDate\" is specified incorrectly, date must not be past");
+        }
+    }
+
+    private static void validateEndDate(String endDateString) {
+        LocalDateTime endDate;
+        try {
+            endDate = LocalDateTime.parse(endDateString);
+        } catch (Exception e) {
+            throw new ValidationException("Required value \"endDate\" is specified incorrectly or empty");
+        }
+        boolean isFutureDate = endDate.isAfter(LocalDateTime.now());
+        if (!isFutureDate) {
+            throw new ValidationException("Required value \"endDate\" is specified incorrectly, date must not be past");
+        }
+    }
+
+    private static void validateStartAndEndDateOrder(String startDateString, String endDateString) {
+        LocalDateTime startDate = LocalDateTime.parse(startDateString);
+        LocalDateTime endDate = LocalDateTime.parse(endDateString);
+        boolean isEndDateAfterStartDate = endDate.isAfter(startDate);
+        if (!isEndDateAfterStartDate) {
+            throw new ValidationException("Required value \"startDate\" and  \"endDate\" are specified incorrectly, " +
+                    "\"endDate\" must be after \"startDate\"");
+        }
     }
 
     private static Trigger createSimpleTrigger(TriggerDto triggerDto) {
@@ -110,13 +167,22 @@ public final class TriggerUtils {
                 ? new TriggerKey(triggerDto.getTriggerId())
                 : new TriggerKey(triggerDto.getTriggerId(), triggerDto.getTriggerGroupName());
 
-        return TriggerBuilder
-                .newTrigger()
-                .withIdentity(triggerKey)
-                .withSchedule(schedulerBuilder)
-                .startAt(Timestamp.valueOf(triggerDto.getStartDate()))
-                .withDescription(triggerDto.getDescription())
-                .build();
+        return triggerDto.getRepeatForever()
+                ? TriggerBuilder.newTrigger()
+                    .withIdentity(triggerKey)
+                    .withSchedule(schedulerBuilder)
+                    .startAt(Timestamp.valueOf(LocalDateTime.parse(triggerDto.getStartDate())))
+                    .endAt(Timestamp.valueOf(LocalDateTime.parse(triggerDto.getEndDate())))
+                    .withDescription(triggerDto.getDescription())
+                    .forJob(triggerDto.getJobId(), triggerDto.getJobGroupName())
+                    .build()
+                : TriggerBuilder.newTrigger()
+                    .withIdentity(triggerKey)
+                    .withSchedule(schedulerBuilder)
+                    .startAt(Timestamp.valueOf(LocalDateTime.parse(triggerDto.getStartDate())))
+                    .withDescription(triggerDto.getDescription())
+                    .forJob(triggerDto.getJobId(), triggerDto.getJobGroupName())
+                    .build();
     }
 
     private static Trigger createCronTrigger(TriggerDto triggerDto) {
@@ -129,13 +195,13 @@ public final class TriggerUtils {
                 ? new TriggerKey(triggerDto.getTriggerId())
                 : new TriggerKey(triggerDto.getTriggerId(), triggerDto.getTriggerGroupName());
 
-        return TriggerBuilder
-                .newTrigger()
+        return TriggerBuilder.newTrigger()
                 .withIdentity(triggerKey)
                 .withSchedule(scheduleBuilder)
                 .startAt(Timestamp.valueOf(triggerDto.getStartDate()))
                 .endAt(Timestamp.valueOf(triggerDto.getEndDate()))
                 .withDescription(triggerDto.getDescription())
+                .forJob(triggerDto.getJobId(), triggerDto.getJobGroupName())
                 .build();
     }
 }

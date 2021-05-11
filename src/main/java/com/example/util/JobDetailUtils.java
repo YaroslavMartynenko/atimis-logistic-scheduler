@@ -5,7 +5,6 @@ import com.example.exception.ValidationException;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import org.quartz.*;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
@@ -13,10 +12,6 @@ import static java.util.Objects.isNull;
 
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public final class JobDetailUtils {
-
-    //todo
-//    @Value("${job.class.path}")
-//    private String jobClassPath;
 
     public static JobDetailDto convertJobDetailToDto(JobDetail jobDetail) {
         if (isNull(jobDetail)) {
@@ -52,9 +47,7 @@ public final class JobDetailUtils {
         String description = StringUtils.isEmpty(jobDetailDto.getDescription()) ? null : jobDetailDto.getDescription();
 
         return JobBuilder
-                //todo: "com.example.job." - it is hotfix. Needs find out some better solution
-                // As possible solution: add to JobDetailDto field String classLocation
-                .newJob((Class<? extends Job>) Class.forName("com.example.job." + jobDetailDto.getJobClassName()))
+                .newJob((Class<? extends Job>) Class.forName(jobDetailDto.getJobClassName()))
                 .withIdentity(jobKey)
                 .usingJobData(jobDataMap)
                 .requestRecovery(requestRecovery)
@@ -78,8 +71,7 @@ public final class JobDetailUtils {
 
         Class<?> jobClass;
         try {
-            //todo: "com.example.job." - it is hotfix. Needs find out some better solution
-            jobClass = Class.forName("com.example.job." + jobClassName);
+            jobClass = Class.forName(jobClassName);
         } catch (ClassNotFoundException e) {
             throw new ValidationException(
                     "Specified value \"jobClassName\" is incorrect. Job class with such name does not exist");

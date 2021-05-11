@@ -19,6 +19,8 @@ public class MessageJob implements Job {
 
     @Override
     public void execute(JobExecutionContext jobExecutionContext) {
+
+        System.out.println("Thread name: "+ Thread.currentThread().getName());
         Message message = Message.builder().message("This message was created on: " + LocalDateTime.now()).build();
         messageService.saveMessage(message);
     }

@@ -4,18 +4,21 @@ import com.example.domain.TimerInfo;
 import com.example.domain.TriggerDto;
 import com.example.exception.JobDetailNotFoundException;
 import com.example.exception.TriggerNotFoundException;
+import com.example.exception.ValidationException;
 import com.example.job.MessageJob;
 import com.example.util.TimerUtils;
 import com.example.util.TriggerUtils;
 import lombok.RequiredArgsConstructor;
+import org.apache.commons.lang3.StringUtils;
 import org.quartz.*;
+import org.quartz.impl.matchers.GroupMatcher;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
-import static java.util.Collections.emptyList;
-import static java.util.Objects.isNull;
+import static java.util.Collections.emptyMap;
 
 @Service
 @RequiredArgsConstructor
@@ -23,16 +26,21 @@ public class JobService {
 
     private final Scheduler scheduler;
 
-    public boolean scheduleJob(String jobId, String jobGroupName, TriggerDto triggerDto) {
+    public boolean scheduleJob(TriggerDto triggerDto) {
         try {
-            TriggerUtils.validateTriggerDto(triggerDto);
-            Trigger trigger = TriggerUtils.convertDtoToTrigger(triggerDto);
-            JobDetail jobDetail = scheduler.getJobDetail(new JobKey(jobId, jobGroupName));
-            if (isNull(jobDetail)) {
+            String jobId = triggerDto.getJobId();
+            String jobGroupName = triggerDto.getJobGroupName();
+            if (StringUtils.isEmpty(jobId) || StringUtils.isEmpty(jobGroupName)) {
+                throw new ValidationException("Required value \"jobId\" or \"jobGroupName\" is not specified or empty");
+            }
+            boolean jobDetailExists = scheduler.checkExists(new JobKey(jobId, jobGroupName));
+            if (!jobDetailExists) {
                 throw new JobDetailNotFoundException(
                         "JobDetail with such jobId: " + jobId + " and jobGroupName: " + jobGroupName + " is not found");
             }
-            scheduler.scheduleJob(jobDetail, Collections.singleton(trigger), true);
+            TriggerUtils.validateTriggerDto(triggerDto);
+            Trigger trigger = TriggerUtils.convertDtoToTrigger(triggerDto);
+            scheduler.scheduleJob(trigger);
             return true;
         } catch (SchedulerException e) {
             e.printStackTrace();
@@ -56,16 +64,44 @@ public class JobService {
         }
     }
 
-    //todo: check
-    public List<JobExecutionContext> getScheduledJobs() {
+    //todo: think about simplifying method. Create some pretty dto object instead of map - JobExecutionDetails
+    public Map<String, String> getScheduledJobs() {
+        Set<TriggerKey> triggerKeys = null;
         try {
-//          return context.getScheduler().getCurrentlyExecutingJobs();
-            return scheduler.getCurrentlyExecutingJobs();
+            triggerKeys = scheduler.getTriggerKeys(GroupMatcher.anyGroup());
         } catch (SchedulerException e) {
             e.printStackTrace();
-            //todo: add logging
-            return null;
         }
+
+        if (CollectionUtils.isEmpty(triggerKeys)) {
+            return emptyMap();
+        }
+
+        List<Trigger> triggers = triggerKeys.stream()
+                .map(triggerKey -> {
+                    try {
+                        return scheduler.getTrigger(triggerKey);
+                    } catch (SchedulerException e) {
+                        //todo: add logging
+                        return null;
+                    }
+                })
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+        return triggers.stream()
+                .map(trigger -> {
+                    JobDetail jobDetail;
+                    try {
+                        jobDetail = scheduler.getJobDetail(trigger.getJobKey());
+                    } catch (SchedulerException e) {
+                        //todo: add logging
+                        return null;
+                    }
+                    return new AbstractMap.SimpleEntry<>(trigger.toString(), jobDetail.toString());
+                })
+                .filter(Objects::nonNull)
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
     public boolean scheduleHardcodedJob() {

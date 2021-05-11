@@ -3,12 +3,14 @@ package com.example.controller;
 import com.example.domain.TriggerDto;
 import com.example.service.JobService;
 import lombok.RequiredArgsConstructor;
+import org.quartz.JobDetail;
 import org.quartz.JobExecutionContext;
+import org.quartz.Trigger;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
@@ -17,18 +19,15 @@ public class JobController {
 
     private final JobService jobService;
 
-    // This endpoint does not work correctly
     @GetMapping("info")
-    public ResponseEntity<List<JobExecutionContext>> getScheduledJobs(JobExecutionContext context) {
-        List<JobExecutionContext> scheduledJobs = jobService.getScheduledJobs();
+    public ResponseEntity<Map<String,String>> getScheduledJobs(JobExecutionContext context) {
+        Map<String, String> scheduledJobs = jobService.getScheduledJobs();
         return new ResponseEntity<>(scheduledJobs, HttpStatus.OK);
     }
 
-    @PostMapping("run/{jobId}/{jobGroupName}")
-    public ResponseEntity<Boolean> scheduleJob(@PathVariable String jobId,
-                                               @PathVariable String jobGroupName,
-                                               @RequestBody TriggerDto triggerDto) {
-        boolean isJobScheduled = jobService.scheduleJob(jobId, jobGroupName, triggerDto);
+    @PostMapping("run")
+    public ResponseEntity<Boolean> scheduleJob(@RequestBody TriggerDto triggerDto) {
+        boolean isJobScheduled = jobService.scheduleJob(triggerDto);
         return new ResponseEntity<>(isJobScheduled, HttpStatus.OK);
     }
 
