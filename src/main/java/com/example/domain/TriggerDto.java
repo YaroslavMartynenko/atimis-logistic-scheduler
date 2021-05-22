@@ -19,7 +19,6 @@ public class TriggerDto {
     private String endDate;
     private String description;
     private String cronExpression;
-    // other fields for creating trigger
     private String jobId;
     private String jobGroupName;
 }
