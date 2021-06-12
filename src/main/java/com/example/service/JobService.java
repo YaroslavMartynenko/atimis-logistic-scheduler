@@ -1,14 +1,11 @@
 package com.example.service;
 
 import com.example.domain.JobLogLevel;
-import com.example.domain.TimerInfo;
 import com.example.domain.TriggerDto;
 import com.example.entity.JobLog;
 import com.example.exception.JobDetailNotFoundException;
 import com.example.exception.TriggerNotFoundException;
 import com.example.exception.ValidationException;
-import com.example.job.MessageJob;
-import com.example.util.TimerUtils;
 import com.example.util.TriggerUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
@@ -18,7 +15,10 @@ import org.quartz.impl.matchers.GroupMatcher;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
-import java.util.*;
+import java.util.AbstractMap;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static java.util.Collections.emptyMap;
@@ -29,7 +29,7 @@ import static java.util.Collections.emptyMap;
 public class JobService {
 
     private final Scheduler scheduler;
-    private final JobLogger jobLogger;
+    private final JobLogService jobLogService;
 
     public boolean scheduleJob(TriggerDto triggerDto) {
         try {
@@ -39,11 +39,11 @@ public class JobService {
             scheduler.scheduleJob(trigger);
             JobLog jobLog = JobLog.builder()
                     .logLevel(JobLogLevel.INFO)
-                    .jobKey(new JobKey(triggerDto.getJobId(), triggerDto.getJobGroupName()).toString())
-                    .triggerKey(new TriggerKey(triggerDto.getTriggerId(), triggerDto.getTriggerGroupName()).toString())
+                    .jobKey(trigger.getKey().toString())
+                    .triggerKey(trigger.getKey().toString())
                     .errorMessage("Job successfully scheduled")
                     .build();
-            jobLogger.log(jobLog);
+            jobLogService.log(jobLog);
             return true;
         } catch (SchedulerException e) {
             JobLog jobLog = JobLog.builder()
@@ -53,35 +53,69 @@ public class JobService {
                     .errorMessage("Error while scheduling job. Message: " + e.getMessage())
                     .build();
             log.error("Error while scheduling job. Message: {}", e.getMessage());
-            jobLogger.log(jobLog);
+            jobLogService.log(jobLog);
             return false;
         }
     }
 
+    //todo: think about refactoring, because this method looks ugly :(
     public boolean stopScheduledJob(String triggerId, String triggerGroupName) {
+        JobKey jobKey;
         try {
-            boolean triggerExists = scheduler.checkExists(new TriggerKey(triggerId, triggerGroupName));
-            if (!triggerExists) {
-                throw new TriggerNotFoundException(
-                        "Trigger with such triggerId: " + triggerId + " and triggerGroupName: " + triggerGroupName + " is not found");
-            }
+            jobKey = getJobKeyForTriggerKey(new TriggerKey(triggerId, triggerGroupName));
+        } catch (SchedulerException e) {
+            log.warn("Error while getting details for scheduled jobs. Message: {}", e.getMessage());
+            jobLogService.log(JobLogLevel.WARN, "Error while getting details for scheduled jobs. Message: " + e.getMessage());
+            return false;
+        }
+        try {
+            checkTriggerExists(triggerId, triggerGroupName);
             boolean isJobStopped = scheduler.unscheduleJob(new TriggerKey(triggerId, triggerGroupName));
             JobLog jobLog = JobLog.builder()
-                    .logLevel(JobLogLevel.INFO)
+                    .logLevel(isJobStopped ? JobLogLevel.INFO : JobLogLevel.WARN)
                     .triggerKey(new TriggerKey(triggerId, triggerGroupName).toString())
-                    //todo: think about adding jobKey
+                    .jobKey(jobKey.toString())
                     .errorMessage(isJobStopped ? "Job successfully stopped" : "Job stopping failed")
                     .build();
-            jobLogger.log(jobLog);
+            jobLogService.log(jobLog);
             return isJobStopped;
         } catch (SchedulerException e) {
             JobLog jobLog = JobLog.builder()
                     .logLevel(JobLogLevel.ERROR)
+                    .jobKey(jobKey.toString())
                     .triggerKey(new TriggerKey(triggerId, triggerGroupName).toString())
                     .errorMessage("Error while stopping job. Message: " + e.getMessage())
                     .build();
             log.error("Error while stopping job. Message: {}", e.getMessage());
-            jobLogger.log(jobLog);
+            jobLogService.log(jobLog);
+            return false;
+        }
+    }
+
+    public boolean updateScheduledJob(String triggerId, String triggerGroupName, TriggerDto triggerDto) {
+        try {
+            checkTriggerExists(triggerId, triggerGroupName);
+            checkNewTriggerJobKey(triggerId, triggerGroupName, triggerDto);
+            TriggerUtils.validateTriggerDto(triggerDto);
+            Trigger newTrigger = TriggerUtils.convertDtoToTrigger(triggerDto);
+            scheduler.rescheduleJob(new TriggerKey(triggerId, triggerGroupName), newTrigger);
+            JobLog jobLog = JobLog.builder()
+                    .logLevel(JobLogLevel.INFO)
+                    .jobKey(newTrigger.getJobKey().toString())
+                    .triggerKey(newTrigger.getKey().toString())
+                    .errorMessage("Job successfully rescheduled")
+                    .build();
+            jobLogService.log(jobLog);
+            return true;
+        } catch (SchedulerException e) {
+            JobLog jobLog = JobLog.builder()
+                    .logLevel(JobLogLevel.ERROR)
+                    .jobKey(new JobKey(triggerDto.getJobId(), triggerDto.getJobGroupName()).toString())
+                    .triggerKey(new TriggerKey(triggerId, triggerGroupName).toString())
+                    .errorMessage("Error while rescheduling job. Message: " + e.getMessage())
+                    .build();
+            log.error("Error while rescheduling job. Message: {}", e.getMessage());
+            jobLogService.log(jobLog);
             return false;
         }
     }
@@ -93,7 +127,7 @@ public class JobService {
             triggers = getAllTriggers();
         } catch (SchedulerException e) {
             log.warn("Error while getting info about scheduled jobs. Message: {}", e.getMessage());
-            jobLogger.log(JobLogLevel.WARN, "Error while getting info about scheduled jobs. Message: " + e.getMessage());
+            jobLogService.log(JobLogLevel.WARN, "Error while getting info about scheduled jobs. Message: " + e.getMessage());
         }
         return CollectionUtils.isEmpty(triggers)
                 ? emptyMap()
@@ -104,34 +138,13 @@ public class JobService {
                             jobDetail = scheduler.getJobDetail(trigger.getJobKey());
                         } catch (SchedulerException e) {
                             log.warn("Error while getting info about scheduled jobs. Message: {}", e.getMessage());
-                            jobLogger.log(JobLogLevel.WARN, "Error while getting info about scheduled jobs. Message: " + e.getMessage());
+                            jobLogService.log(JobLogLevel.WARN, "Error while getting info about scheduled jobs. Message: " + e.getMessage());
                             return null;
                         }
                         return new AbstractMap.SimpleEntry<>(trigger.toString(), jobDetail.toString());
                     })
                     .filter(Objects::nonNull)
                     .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    }
-
-    public boolean scheduleHardcodedJob() {
-        TimerInfo timerInfo = new TimerInfo();
-        timerInfo.setTotalFireCount(15);
-        timerInfo.setRemainingFireCount(timerInfo.getTotalFireCount());
-        timerInfo.setRunForever(false);
-        timerInfo.setRepeatIntervalMs(10000);
-        timerInfo.setInitialOffsetMs(3000);
-        timerInfo.setCallbackData("Some callback data");
-
-        JobDetail jobDetail = TimerUtils.buildJobDetail(MessageJob.class, timerInfo);
-        Trigger trigger = TimerUtils.buildTrigger(MessageJob.class, timerInfo);
-
-        try {
-            scheduler.scheduleJob(jobDetail, trigger);
-            return true;
-        } catch (SchedulerException e) {
-            e.printStackTrace();
-            return false;
-        }
     }
 
     private void verifyJobDetailExists(String jobId, String jobGroupName) throws SchedulerException {
@@ -153,7 +166,7 @@ public class JobService {
                         return scheduler.getTrigger(triggerKey);
                     } catch (SchedulerException e) {
                         log.warn("Error while getting info about scheduled jobs. Message: {}", e.getMessage());
-                        jobLogger.log(JobLogLevel.WARN, "Error while getting info about scheduled jobs. Message: " + e.getMessage());
+                        jobLogService.log(JobLogLevel.WARN, "Error while getting info about scheduled jobs. Message: " + e.getMessage());
                         return null;
                     }
                 })
@@ -161,19 +174,27 @@ public class JobService {
                 .collect(Collectors.toSet());
     }
 
-    //todo: check if possible reschedule job and implement this method
-//    public boolean updateScheduledJob(String jobId, TimerInfo info) {
-//        try {
-//            JobDetail jobDetail = scheduler.getJobDetail(new JobKey(jobId));
-//            if (isNull(jobDetail)) {
-//                return false;
-//            }
-//            jobDetail.getJobDataMap().put(jobId, info);
-//            scheduler.addJob(jobDetail, true, true);
-//            return true;
-//        } catch (SchedulerException e) {
-//            e.printStackTrace();
-//            return false;
-//        }
-//    }
+    private void checkTriggerExists(String triggerId, String triggerGroupName) throws SchedulerException {
+        boolean triggerExists = scheduler.checkExists(new TriggerKey(triggerId, triggerGroupName));
+        if (!triggerExists) {
+            throw new TriggerNotFoundException(
+                    "Trigger with such triggerId: " + triggerId + " and triggerGroupName: " + triggerGroupName + " is not found");
+        }
+    }
+
+    private void checkNewTriggerJobKey(String oldTriggerId, String oldTriggerGroupName, TriggerDto newTriggerDto) throws SchedulerException {
+        Trigger oldTrigger = scheduler.getTrigger(new TriggerKey(oldTriggerId, oldTriggerGroupName));
+        JobKey jobKey = oldTrigger.getJobKey();
+        boolean isJobKeyEquivalent =
+                jobKey.equals(new JobKey(newTriggerDto.getJobId(), newTriggerDto.getTriggerGroupName()));
+        if (!isJobKeyEquivalent) {
+            throw new ValidationException("Specified jobId: " + newTriggerDto.getJobId() + " and jobGroupName: " +
+                    newTriggerDto.getTriggerGroupName() + " for new trigger are not correct." +
+                    "Specified jobId and jobGroupName must be equivalent for new trigger and for old trigger");
+        }
+    }
+
+    private JobKey getJobKeyForTriggerKey(TriggerKey triggerKey) throws SchedulerException {
+        return scheduler.getTrigger(triggerKey).getJobKey();
+    }
 }

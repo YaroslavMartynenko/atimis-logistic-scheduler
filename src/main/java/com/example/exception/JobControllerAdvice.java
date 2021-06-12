@@ -11,15 +11,21 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 @ControllerAdvice
 public class JobControllerAdvice extends ResponseEntityExceptionHandler {
 
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<String> handleException(Exception e) {
-        log.error("Error while executing process. Message: {}", e.getMessage());
-        return new ResponseEntity<>(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
-    }
-
     @ExceptionHandler(ValidationException.class)
     public ResponseEntity<String> handleValidationException(ValidationException e) {
         log.info("Error while validating data. Message: {}", e.getMessage());
         return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler({JobDetailNotFoundException.class, TriggerNotFoundException.class})
+    public ResponseEntity<String> handleNotFoundException(RuntimeException e) {
+        log.info("Error while requesting. Requested object does not exist. Message: {}", e.getMessage());
+        return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<String> handleException(Exception e) {
+        log.error("Error while executing process. Message: {}", e.getMessage());
+        return new ResponseEntity<>(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }

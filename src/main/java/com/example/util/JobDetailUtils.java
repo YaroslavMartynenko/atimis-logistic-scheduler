@@ -9,6 +9,7 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import static java.util.Objects.isNull;
+import static java.util.Objects.nonNull;
 
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public final class JobDetailUtils {
@@ -19,7 +20,7 @@ public final class JobDetailUtils {
         }
 
         return JobDetailDto.builder()
-                .jobClassName(jobDetail.getJobClass().getSimpleName())
+                .jobClassName(jobDetail.getJobClass().getName())
                 .jobId(jobDetail.getKey().getName())
                 .jobGroupName(jobDetail.getKey().getGroup())
                 .jobData(jobDetail.getJobDataMap().getWrappedMap())
@@ -35,15 +36,12 @@ public final class JobDetailUtils {
             return null;
         }
 
-        JobKey jobKey = StringUtils.isEmpty(jobDetailDto.getJobGroupName())
-                ? new JobKey(jobDetailDto.getJobId())
-                : new JobKey(jobDetailDto.getJobId(), jobDetailDto.getJobGroupName());
-
+        JobKey jobKey = new JobKey(jobDetailDto.getJobId(), jobDetailDto.getJobGroupName());
         JobDataMap jobDataMap = CollectionUtils.isEmpty(jobDetailDto.getJobData())
                 ? new JobDataMap() : new JobDataMap(jobDetailDto.getJobData());
 
-        boolean requestRecovery = !isNull(jobDetailDto.getIsJobSelfRecovered()) && jobDetailDto.getIsJobSelfRecovered();
-        boolean storeDurably = !isNull(jobDetailDto.getIsJobDurable()) && jobDetailDto.getIsJobDurable();
+        boolean requestRecovery = nonNull(jobDetailDto.getIsJobSelfRecovered()) && jobDetailDto.getIsJobSelfRecovered();
+        boolean storeDurably = nonNull(jobDetailDto.getIsJobDurable()) && jobDetailDto.getIsJobDurable();
         String description = StringUtils.isEmpty(jobDetailDto.getDescription()) ? null : jobDetailDto.getDescription();
 
         return JobBuilder
@@ -62,6 +60,7 @@ public final class JobDetailUtils {
         }
         validateJobClassName(jobDetailDto.getJobClassName());
         validateJobId(jobDetailDto.getJobId());
+        validateJobGroupName(jobDetailDto.getJobGroupName());
     }
 
     private static void validateJobClassName(String jobClassName) {
@@ -86,6 +85,12 @@ public final class JobDetailUtils {
     private static void validateJobId(String jobId) {
         if (StringUtils.isEmpty(jobId)) {
             throw new ValidationException("Required value \"jobId\" is not specified or empty");
+        }
+    }
+
+    private static void validateJobGroupName(String jobGroupName) {
+        if (StringUtils.isEmpty(jobGroupName)) {
+            throw new ValidationException("Required value \"jobGroupName\" is not specified or empty");
         }
     }
 }

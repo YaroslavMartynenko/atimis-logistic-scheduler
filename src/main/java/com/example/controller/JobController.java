@@ -3,9 +3,6 @@ package com.example.controller;
 import com.example.domain.TriggerDto;
 import com.example.service.JobService;
 import lombok.RequiredArgsConstructor;
-import org.quartz.JobDetail;
-import org.quartz.JobExecutionContext;
-import org.quartz.Trigger;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -20,7 +17,7 @@ public class JobController {
     private final JobService jobService;
 
     @GetMapping("info")
-    public ResponseEntity<Map<String,String>> getScheduledJobs(JobExecutionContext context) {
+    public ResponseEntity<Map<String, String>> getScheduledJobs() {
         Map<String, String> scheduledJobs = jobService.getScheduledJobs();
         return new ResponseEntity<>(scheduledJobs, HttpStatus.OK);
     }
@@ -38,16 +35,11 @@ public class JobController {
         return new ResponseEntity<>(isJobStopped, HttpStatus.OK);
     }
 
-    @PostMapping("runHardcodedJob")
-    public ResponseEntity<Boolean> scheduleJob() {
-        boolean isJobScheduled = jobService.scheduleHardcodedJob();
-        return new ResponseEntity<>(isJobScheduled, HttpStatus.OK);
+    @PutMapping("update/{triggerId}/{triggerGroupName}")
+    public ResponseEntity<Boolean> updateJob(@PathVariable String triggerId,
+                                             @PathVariable String triggerGroupName,
+                                             @RequestBody TriggerDto triggerDto) {
+        boolean isJobUpdated = jobService.updateScheduledJob(triggerId, triggerGroupName, triggerDto);
+        return new ResponseEntity<>(isJobUpdated, HttpStatus.OK);
     }
-
-    //todo: check if possible reschedule job and implement this endpoint
-//    @PutMapping("{jobId}")//todo: change endpoint path and update service logic
-//    public ResponseEntity<Boolean> updateJob(@PathVariable String jobId, @RequestBody TimerInfo timerInfo) {
-//        boolean isJobUpdated = jobService.updateScheduledJob(jobId, timerInfo);
-//        return new ResponseEntity<>(isJobUpdated, HttpStatus.OK);
-//    }
 }

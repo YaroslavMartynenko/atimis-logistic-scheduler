@@ -1,10 +1,5 @@
 package com.example;
 
-import com.example.domain.JobLogLevel;
-import com.example.entity.JobLog;
-import com.example.service.JobLogger;
-import org.quartz.JobKey;
-import org.quartz.TriggerKey;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -23,5 +18,9 @@ public class Application {
 //                .build();
 //
 //        bean.log(jobLog);
+
+//        JobLogger bean = run.getBean(JobLogger.class);
+//        List<JobLog> allLogs = bean.findLogsByParameters();
+//        allLogs.forEach(l -> System.out.println(l));
     }
 }

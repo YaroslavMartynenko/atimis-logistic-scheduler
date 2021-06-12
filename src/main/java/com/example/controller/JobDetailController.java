@@ -34,4 +34,10 @@ public class JobDetailController {
         boolean isJobDetailDeleted = jobDetailService.deleteJobDetail(jobId, jobGroupName);
         return new ResponseEntity<>(isJobDetailDeleted, HttpStatus.OK);
     }
+
+    @PutMapping
+    public ResponseEntity<Boolean> updateJobDetail(@RequestBody JobDetailDto jobDetailDto) {
+        boolean isJobDetailUpdated = jobDetailService.updateJobDetail(jobDetailDto);
+        return new ResponseEntity<>(isJobDetailUpdated, HttpStatus.OK);
+    }
 }

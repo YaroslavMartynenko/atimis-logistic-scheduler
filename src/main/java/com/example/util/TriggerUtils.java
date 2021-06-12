@@ -34,7 +34,8 @@ public final class TriggerUtils {
                     .build();
 
     public static Trigger convertDtoToTrigger(TriggerDto triggerDto) {
-        Function<TriggerDto, Trigger> triggerConvertor = TRIGGER_CONVERTORS.get(triggerDto.getTriggerType());
+        TriggerType triggerType = TriggerType.valueOf(triggerDto.getTriggerType());
+        Function<TriggerDto, Trigger> triggerConvertor = TRIGGER_CONVERTORS.get(triggerType);
         if (isNull(triggerConvertor)) {
             throw new IllegalArgumentException("Can not create trigger from trigger dto: " + triggerDto.toString());
         }
@@ -43,10 +44,11 @@ public final class TriggerUtils {
 
     public static void validateTriggerDto(TriggerDto triggerDto) {
         if (isNull(triggerDto)) {
-            throw new ValidationException("Required trigger dto object is null");
+            throw new ValidationException("Required TriggerDto object is null");
         }
-        validateTriggerId(triggerDto.getTriggerId());
         validateTriggerType(triggerDto.getTriggerType());
+        validateTriggerId(triggerDto.getTriggerId());
+        validateTriggerGroupName(triggerDto.getTriggerGroupName());
         validateDtoValuesByTriggerType(triggerDto);
     }
 
@@ -56,15 +58,23 @@ public final class TriggerUtils {
         }
     }
 
-    //todo: trigger type validation does not work correctly due to problem with TriggerTypeDeserializer.class
-    private static void validateTriggerType(TriggerType triggerType) {
-        if (isNull(triggerType)) {
+    private static void validateTriggerGroupName(String triggerGroupName) {
+        if (StringUtils.isEmpty(triggerGroupName)) {
+            throw new ValidationException("Required value \"triggerGroupName\" is not specified or empty");
+        }
+    }
+
+    private static void validateTriggerType(String triggerType) {
+        try {
+            TriggerType.valueOf(triggerType);
+        } catch (Exception e) {
             throw new ValidationException("Required value \"triggerType\" is specified incorrectly or empty");
         }
     }
 
     private static void validateDtoValuesByTriggerType(TriggerDto triggerDto) {
-        Consumer<TriggerDto> triggerValidator = TRIGGER_VALIDATORS.get(triggerDto.getTriggerType());
+        TriggerType triggerType = TriggerType.valueOf(triggerDto.getTriggerType());
+        Consumer<TriggerDto> triggerValidator = TRIGGER_VALIDATORS.get(triggerType);
         if (isNull(triggerValidator)) {
             throw new IllegalArgumentException("Can not validate trigger dto: " + triggerDto.toString());
         }
@@ -163,9 +173,7 @@ public final class TriggerUtils {
         schedulerBuilder = triggerDto.getRepeatForever()
                 ? schedulerBuilder.repeatForever() : schedulerBuilder.withRepeatCount(triggerDto.getRepeatCount());
 
-        TriggerKey triggerKey = StringUtils.isEmpty(triggerDto.getTriggerGroupName())
-                ? new TriggerKey(triggerDto.getTriggerId())
-                : new TriggerKey(triggerDto.getTriggerId(), triggerDto.getTriggerGroupName());
+        TriggerKey triggerKey = new TriggerKey(triggerDto.getTriggerId(), triggerDto.getTriggerGroupName());
 
         return triggerDto.getRepeatForever()
                 ? TriggerBuilder.newTrigger()
@@ -191,9 +199,7 @@ public final class TriggerUtils {
                 //this instruction force trigger re-execute job now if something went wrong
                 .withMisfireHandlingInstructionFireAndProceed();
 
-        TriggerKey triggerKey = StringUtils.isEmpty(triggerDto.getTriggerGroupName())
-                ? new TriggerKey(triggerDto.getTriggerId())
-                : new TriggerKey(triggerDto.getTriggerId(), triggerDto.getTriggerGroupName());
+        TriggerKey triggerKey = new TriggerKey(triggerDto.getTriggerId(), triggerDto.getTriggerGroupName());
 
         return TriggerBuilder.newTrigger()
                 .withIdentity(triggerKey)

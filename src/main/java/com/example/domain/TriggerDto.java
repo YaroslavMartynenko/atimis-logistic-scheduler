@@ -11,7 +11,7 @@ public class TriggerDto {
 
     private String triggerId;
     private String triggerGroupName;
-    private TriggerType triggerType;
+    private String triggerType;
     private Boolean repeatForever;
     private Integer repeatCount;
     private Long repeatIntervalMs;

@@ -2,7 +2,6 @@ package com.example.job;
 
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
-import org.quartz.JobExecutionException;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
