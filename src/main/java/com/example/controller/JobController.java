@@ -1,5 +1,6 @@
 package com.example.controller;
 
+import com.example.domain.JobExecutionDetails;
 import com.example.domain.TriggerDto;
 import com.example.service.JobService;
 import lombok.RequiredArgsConstructor;
@@ -7,7 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
+import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -17,8 +18,8 @@ public class JobController {
     private final JobService jobService;
 
     @GetMapping("info")
-    public ResponseEntity<Map<String, String>> getScheduledJobs() {
-        Map<String, String> scheduledJobs = jobService.getScheduledJobs();
+    public ResponseEntity<List<JobExecutionDetails>> getScheduledJobs() {
+        List<JobExecutionDetails> scheduledJobs = jobService.getScheduledJobs();
         return new ResponseEntity<>(scheduledJobs, HttpStatus.OK);
     }
 

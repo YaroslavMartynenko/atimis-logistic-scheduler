@@ -1,5 +1,6 @@
 package com.example.service;
 
+import com.example.domain.JobExecutionDetails;
 import com.example.domain.JobLogLevel;
 import com.example.domain.TriggerDto;
 import com.example.entity.JobLog;
@@ -15,13 +16,14 @@ import org.quartz.impl.matchers.GroupMatcher;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
+import java.time.ZoneId;
 import java.util.AbstractMap;
-import java.util.Map;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static java.util.Collections.emptyMap;
+import static java.util.Collections.emptyList;
 
 @Log4j2
 @Service
@@ -120,8 +122,7 @@ public class JobService {
         }
     }
 
-    //todo: Create some pretty dto object instead of map - JobExecutionDetails
-    public Map<String, String> getScheduledJobs() {
+    public List<JobExecutionDetails> getScheduledJobs() {
         Set<Trigger> triggers = null;
         try {
             triggers = getAllTriggers();
@@ -130,21 +131,43 @@ public class JobService {
             jobLogService.log(JobLogLevel.WARN, "Error while getting info about scheduled jobs. Message: " + e.getMessage());
         }
         return CollectionUtils.isEmpty(triggers)
-                ? emptyMap()
-                : triggers.stream()
-                    .map(trigger -> {
-                        JobDetail jobDetail;
-                        try {
-                            jobDetail = scheduler.getJobDetail(trigger.getJobKey());
-                        } catch (SchedulerException e) {
-                            log.warn("Error while getting info about scheduled jobs. Message: {}", e.getMessage());
-                            jobLogService.log(JobLogLevel.WARN, "Error while getting info about scheduled jobs. Message: " + e.getMessage());
-                            return null;
-                        }
-                        return new AbstractMap.SimpleEntry<>(trigger.toString(), jobDetail.toString());
-                    })
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                ? emptyList()
+                : getJobExecutionDetailsMap(triggers);
+    }
+
+    private List<JobExecutionDetails> getJobExecutionDetailsMap(Set<Trigger> triggers) {
+        return triggers.stream()
+                .map(trigger -> {
+                    JobDetail jobDetail;
+                    try {
+                        jobDetail = scheduler.getJobDetail(trigger.getJobKey());
+                    } catch (SchedulerException e) {
+                        log.warn("Error while getting info about scheduled jobs. Message: {}", e.getMessage());
+                        jobLogService.log(JobLogLevel.WARN, "Error while getting info about scheduled jobs. Message: " + e.getMessage());
+                        return null;
+                    }
+                    return new AbstractMap.SimpleEntry<>(trigger, jobDetail);
+                })
+                .filter(Objects::nonNull)
+                .map(entry -> buildJobExecutionDetails(entry.getKey(), entry.getValue()))
+                .collect(Collectors.toList());
+    }
+
+    private JobExecutionDetails buildJobExecutionDetails(Trigger trigger, JobDetail jobDetail) {
+        return JobExecutionDetails.builder()
+                .triggerClassName(trigger.getClass().getName())
+                .triggerKey(trigger.getKey())
+                .triggerDescription(trigger.getDescription())
+                .misfireInstruction(trigger.getMisfireInstruction())
+                .nextFireTime(trigger.getNextFireTime().toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime())
+                .jobClassName(jobDetail.getJobClass().getName())
+                .jobKey(jobDetail.getKey())
+                .jobDetailDescription(jobDetail.getDescription())
+                .concurrentExecutionDisallowed(jobDetail.isConcurrentExectionDisallowed())
+                .persistJobDataAfterExecution(jobDetail.isPersistJobDataAfterExecution())
+                .jobSelfRecovered(jobDetail.requestsRecovery())
+                .jobDetailsRemainStoredAfterExecution(jobDetail.isDurable())
+                .build();
     }
 
     private void verifyJobDetailExists(String jobId, String jobGroupName) throws SchedulerException {
