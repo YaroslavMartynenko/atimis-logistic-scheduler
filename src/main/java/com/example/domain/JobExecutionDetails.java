@@ -20,6 +20,7 @@ public class JobExecutionDetails {
     private String triggerDescription;
     private Integer misfireInstruction;
     private LocalDateTime nextFireTime;
+    private String triggerState;
     private String jobClassName;
     private JobKey jobKey;
     private String jobDetailDescription;

@@ -24,6 +24,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static java.util.Collections.emptyList;
+import static java.util.Objects.nonNull;
 
 @Log4j2
 @Service
@@ -35,7 +36,7 @@ public class JobService {
 
     public boolean scheduleJob(TriggerDto triggerDto) {
         try {
-            verifyJobDetailExists(triggerDto.getJobId(), triggerDto.getJobGroupName());
+            checkJobDetailExists(triggerDto.getJobId(), triggerDto.getJobGroupName());
             TriggerUtils.validateTriggerDto(triggerDto);
             Trigger trigger = TriggerUtils.convertDtoToTrigger(triggerDto);
             scheduler.scheduleJob(trigger);
@@ -64,6 +65,7 @@ public class JobService {
     public boolean stopScheduledJob(String triggerId, String triggerGroupName) {
         JobKey jobKey;
         try {
+            checkTriggerExists(triggerId, triggerGroupName);
             jobKey = getJobKeyForTriggerKey(new TriggerKey(triggerId, triggerGroupName));
         } catch (SchedulerException e) {
             log.warn("Error while getting details for scheduled jobs. Message: {}", e.getMessage());
@@ -71,7 +73,6 @@ public class JobService {
             return false;
         }
         try {
-            checkTriggerExists(triggerId, triggerGroupName);
             boolean isJobStopped = scheduler.unscheduleJob(new TriggerKey(triggerId, triggerGroupName));
             JobLog jobLog = JobLog.builder()
                     .logLevel(isJobStopped ? JobLogLevel.INFO : JobLogLevel.WARN)
@@ -154,12 +155,21 @@ public class JobService {
     }
 
     private JobExecutionDetails buildJobExecutionDetails(Trigger trigger, JobDetail jobDetail) {
+        Trigger.TriggerState triggerState = null;
+        try {
+            triggerState = scheduler.getTriggerState(trigger.getKey());
+        } catch (SchedulerException e) {
+            log.warn("Error while getting info about {} trigger state. Message: {}", trigger.getKey().toString(), e.getMessage());
+            jobLogService.log(JobLogLevel.WARN, "Error while getting info about " + trigger.getKey().toString() +
+                    "trigger state. Message: " + e.getMessage());
+        }
         return JobExecutionDetails.builder()
                 .triggerClassName(trigger.getClass().getName())
                 .triggerKey(trigger.getKey())
                 .triggerDescription(trigger.getDescription())
                 .misfireInstruction(trigger.getMisfireInstruction())
                 .nextFireTime(trigger.getNextFireTime().toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime())
+                .triggerState(nonNull(triggerState) ? triggerState.name() : null)
                 .jobClassName(jobDetail.getJobClass().getName())
                 .jobKey(jobDetail.getKey())
                 .jobDetailDescription(jobDetail.getDescription())
@@ -170,7 +180,7 @@ public class JobService {
                 .build();
     }
 
-    private void verifyJobDetailExists(String jobId, String jobGroupName) throws SchedulerException {
+    private void checkJobDetailExists(String jobId, String jobGroupName) throws SchedulerException {
         if (StringUtils.isEmpty(jobId) || StringUtils.isEmpty(jobGroupName)) {
             throw new ValidationException("Required value \"jobId\" or \"jobGroupName\" is not specified or empty");
         }
@@ -198,6 +208,9 @@ public class JobService {
     }
 
     private void checkTriggerExists(String triggerId, String triggerGroupName) throws SchedulerException {
+        if (StringUtils.isEmpty(triggerId) || StringUtils.isEmpty(triggerGroupName)) {
+            throw new ValidationException("Required value \"jobId\" or \"jobGroupName\" is not specified or empty");
+        }
         boolean triggerExists = scheduler.checkExists(new TriggerKey(triggerId, triggerGroupName));
         if (!triggerExists) {
             throw new TriggerNotFoundException(
@@ -219,5 +232,105 @@ public class JobService {
 
     private JobKey getJobKeyForTriggerKey(TriggerKey triggerKey) throws SchedulerException {
         return scheduler.getTrigger(triggerKey).getJobKey();
+    }
+
+    public boolean pauseJob(String jobId, String jobGroupName) {
+        try {
+            checkJobDetailExists(jobId, jobGroupName);
+            scheduler.pauseJob(new JobKey(jobId, jobGroupName));
+            JobLog jobLog = JobLog.builder()
+                    .logLevel(JobLogLevel.INFO)
+                    .jobKey(new JobKey(jobId, jobGroupName).toString())
+                    .triggerKey(null)
+                    .errorMessage("Job successfully paused")
+                    .build();
+            jobLogService.log(jobLog);
+            return true;
+        } catch (SchedulerException e) {
+            JobLog jobLog = JobLog.builder()
+                    .logLevel(JobLogLevel.ERROR)
+                    .jobKey(new JobKey(jobId, jobGroupName).toString())
+                    .triggerKey(null)
+                    .errorMessage("Error while pausing job. Message: " + e.getMessage())
+                    .build();
+            log.error("Error while pausing job. Message: {}", e.getMessage());
+            jobLogService.log(jobLog);
+            return false;
+        }
+    }
+
+    public boolean resumeJob(String jobId, String jobGroupName) {
+        try {
+            checkJobDetailExists(jobId, jobGroupName);
+            scheduler.resumeJob(new JobKey(jobId, jobGroupName));
+            JobLog jobLog = JobLog.builder()
+                    .logLevel(JobLogLevel.INFO)
+                    .jobKey(new JobKey(jobId, jobGroupName).toString())
+                    .triggerKey(null)
+                    .errorMessage("Job successfully resumed")
+                    .build();
+            jobLogService.log(jobLog);
+            return true;
+        } catch (SchedulerException e) {
+            JobLog jobLog = JobLog.builder()
+                    .logLevel(JobLogLevel.ERROR)
+                    .jobKey(new JobKey(jobId, jobGroupName).toString())
+                    .triggerKey(null)
+                    .errorMessage("Error while resuming job. Message: " + e.getMessage())
+                    .build();
+            log.error("Error while resuming job. Message: {}", e.getMessage());
+            jobLogService.log(jobLog);
+            return false;
+        }
+    }
+
+    public boolean pauseTrigger(String triggerId, String triggerGroupName) {
+        try {
+            checkTriggerExists(triggerId, triggerGroupName);
+            scheduler.pauseTrigger(new TriggerKey(triggerId, triggerGroupName));
+            JobLog jobLog = JobLog.builder()
+                    .logLevel(JobLogLevel.INFO)
+                    .jobKey(null)
+                    .triggerKey(new TriggerKey(triggerId, triggerGroupName).toString())
+                    .errorMessage("Trigger successfully paused")
+                    .build();
+            jobLogService.log(jobLog);
+            return true;
+        } catch (SchedulerException e) {
+            JobLog jobLog = JobLog.builder()
+                    .logLevel(JobLogLevel.ERROR)
+                    .jobKey(null)
+                    .triggerKey(new TriggerKey(triggerId, triggerGroupName).toString())
+                    .errorMessage("Error while pausing trigger. Message: " + e.getMessage())
+                    .build();
+            log.error("Error while pausing trigger. Message: {}", e.getMessage());
+            jobLogService.log(jobLog);
+            return false;
+        }
+    }
+
+    public boolean resumeTrigger(String triggerId, String triggerGroupName) {
+        try {
+            checkTriggerExists(triggerId, triggerGroupName);
+            scheduler.resumeTrigger(new TriggerKey(triggerId, triggerGroupName));
+            JobLog jobLog = JobLog.builder()
+                    .logLevel(JobLogLevel.INFO)
+                    .jobKey(null)
+                    .triggerKey(new TriggerKey(triggerId, triggerGroupName).toString())
+                    .errorMessage("Trigger successfully resumed")
+                    .build();
+            jobLogService.log(jobLog);
+            return true;
+        } catch (SchedulerException e) {
+            JobLog jobLog = JobLog.builder()
+                    .logLevel(JobLogLevel.ERROR)
+                    .jobKey(null)
+                    .triggerKey(new TriggerKey(triggerId, triggerGroupName).toString())
+                    .errorMessage("Error while resuming trigger. Message: " + e.getMessage())
+                    .build();
+            log.error("Error while resuming trigger. Message: {}", e.getMessage());
+            jobLogService.log(jobLog);
+            return false;
+        }
     }
 }

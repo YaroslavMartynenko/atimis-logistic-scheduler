@@ -111,7 +111,7 @@ public class JobDetailService {
         try {
             String jobId = jobDetailDto.getJobId();
             String jobGroupName = jobDetailDto.getJobGroupName();
-            verifyJobDetailExists(jobId, jobGroupName);
+            checkJobDetailExists(jobId, jobGroupName);
             JobDetail jobDetail = scheduler.getJobDetail(new JobKey(jobId, jobGroupName));
             JobDetail updatedJobDetail = JobBuilder
                     .newJob(jobDetail.getJobClass())
@@ -147,7 +147,7 @@ public class JobDetailService {
 
     }
 
-    private void verifyJobDetailExists(String jobId, String jobGroupName) throws SchedulerException {
+    private void checkJobDetailExists(String jobId, String jobGroupName) throws SchedulerException {
         if (StringUtils.isEmpty(jobId) || StringUtils.isEmpty(jobGroupName)) {
             throw new ValidationException("Required value \"jobId\" or \"jobGroupName\" is not specified or empty");
         }

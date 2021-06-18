@@ -1,6 +1,5 @@
 package com.example.service;
 
-import com.example.domain.TimerInfo;
 import lombok.RequiredArgsConstructor;
 import org.quartz.JobDataMap;
 import org.quartz.JobExecutionContext;
@@ -22,9 +21,8 @@ public class MessageTriggerListener implements TriggerListener {
     public void triggerFired(Trigger trigger, JobExecutionContext context) {
         String jobId = trigger.getKey().getName();
         JobDataMap jobDataMap = context.getJobDetail().getJobDataMap();
-        TimerInfo timerInfo = (TimerInfo) jobDataMap.get(jobId);
 
-        //todo add here logic for logging job execution
+        //todo here can be added logic for logging job execution
 //        if (!timerInfo.isRunForever()) {
 //            int remainingFireCount = timerInfo.getRemainingFireCount();
 //            if (remainingFireCount == 0) {

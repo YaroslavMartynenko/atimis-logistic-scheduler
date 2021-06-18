@@ -36,6 +36,30 @@ public class JobController {
         return new ResponseEntity<>(isJobStopped, HttpStatus.OK);
     }
 
+    @PostMapping("pause/{jobId}/{jobGroupName}")
+    public ResponseEntity<Boolean> pauseJob(@PathVariable String jobId, @PathVariable String jobGroupName) {
+        boolean isJobPaused = jobService.pauseJob(jobId, jobGroupName);
+        return new ResponseEntity<>(isJobPaused, HttpStatus.OK);
+    }
+
+    @PostMapping("resume/{jobId}/{jobGroupName}")
+    public ResponseEntity<Boolean> resumeJob(@PathVariable String jobId, @PathVariable String jobGroupName) {
+        boolean isJobResumed = jobService.resumeJob(jobId, jobGroupName);
+        return new ResponseEntity<>(isJobResumed, HttpStatus.OK);
+    }
+
+    @PostMapping("pauseTrigger/{triggerId}/{triggerGroupName}")
+    public ResponseEntity<Boolean> pauseTrigger(@PathVariable String triggerId, @PathVariable String triggerGroupName) {
+        boolean isTriggerPaused = jobService.pauseTrigger(triggerId, triggerGroupName);
+        return new ResponseEntity<>(isTriggerPaused, HttpStatus.OK);
+    }
+
+    @PostMapping("resumeTrigger/{triggerId}/{triggerGroupName}")
+    public ResponseEntity<Boolean> resumeTrigger(@PathVariable String triggerId, @PathVariable String triggerGroupName) {
+        boolean isTriggerResumed = jobService.resumeTrigger(triggerId, triggerGroupName);
+        return new ResponseEntity<>(isTriggerResumed, HttpStatus.OK);
+    }
+
     @PutMapping("update/{triggerId}/{triggerGroupName}")
     public ResponseEntity<Boolean> updateJob(@PathVariable String triggerId,
                                              @PathVariable String triggerGroupName,
